@@ -2,19 +2,25 @@ import signal
 
 from lib import Worker
 
-class Controler(object):
+class Controller(object):
 	NEED_EXIT = False
 	SIGNAL_HANDLE = None
 
-	def __init__(self, data):
-		if not Controler.SIGNAL_HANDLE:
-			Controler.signal_init()
-			Controler.SIGNAL_HANDLE = Controler.interrupt_handler
-		self.worker = Worker(data)
+	def __init__(self, exec, data):
+		if not Controller.SIGNAL_HANDLE:
+			Controller.signal_init()
+			Controller.SIGNAL_HANDLE = Controller.interrupt_handler
+		self.worker = Worker(exec, data)
 		self.worker.set_checkFunc(self.get_state)
 
 	def get_state(self):
-		return Controler.NEED_EXIT
+		return Controller.NEED_EXIT
+
+	def run_cmd(self, cmd):
+		self.worker.run(cmd, None)
+
+	def get_output(self):
+		pass
 
 	@classmethod
 	def interrupt_handler(cls, signum, frame):

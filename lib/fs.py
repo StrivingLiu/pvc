@@ -59,6 +59,17 @@ class FS:
 				pass
 
 if __name__=="__main__":
+	from connect import PyVimConnect, Entity, Folder
+
+	try:
+		si = PyVimConnect('10.192.231.51')
+	except Exception as ex:
+		raise Exception('invalid vc ip')
+	fs = FS(Folder(si.content.rootFolder, None))
+	print(fs.get_current_path())
+	print(fs.list_subNodes())
+
+
 	"""
 	""
 	ls: folder; 0 Datacenters(no)

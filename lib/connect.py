@@ -26,21 +26,6 @@ def PyVimConnect(host, user='Administrator@vsphere.local', pwd='Admin!23',
 	return pyVim.connect.Connect(host=host, user=user, pwd=pwd,
                                version=version, sslContext=context)
 
-def get_entity_subfolder(entity):
-	ret = []
-	index = 0
-	if entity:
-		for attr in dir(entity):
-			instance = getattr(entity, attr)
-			if isinstance(instance, vim.Folder):
-				moId = instance._moId
-				folder = Folder(moId, instance, attr, index)
-				if hasattr(instance, 'name'):
-					folder.set_name(instance.name)
-				folder.set_depth(depth)
-				index += 1
-				ret.append(folder)
-	return ret
 
 class Entity(AbstractNode):
 
@@ -112,3 +97,6 @@ class Folder(AbstractNode):
 		if not self.entitys:
 			self._get_entity()
 		return len(self.entitys) == 0
+
+if __name__=="__main__":
+	pass

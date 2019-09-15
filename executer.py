@@ -11,7 +11,6 @@ def Execute(cmd, params, context):
 	finally:
 		return ret
 
-
 class Demo_struct:
 	def __init__(self, args=None):
 		self.data = args
