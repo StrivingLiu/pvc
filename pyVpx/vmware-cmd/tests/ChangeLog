@@ -1,0 +1,11 @@
+Change 666307 on 2008/06/18 by mabramow@mabramow-esx40-2:
+   Replace VmStub.py
+
+Change 666270 on 2008/06/18 by mabramow@mabramow-esx40-2:
+   Add ConfigOpsTests
+
+Change 666076 on 2008/06/18 by mabramow@mabramow-esx40-2:
+   Add HostTests, VmTests, Struct
+
+Change 660807 on 2008/06/10 by mabramow@mabramow-esx40-2:
+   Add unit tests

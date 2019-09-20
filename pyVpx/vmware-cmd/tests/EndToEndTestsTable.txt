@@ -1,0 +1,59 @@
+argsStr                               expRc  expOut  expErr
+#--------                             -----  ------  ------
+
+# Things that should fail gracefully.
+unknown_server_op                         0  ''                       Invalid operation
+$vm unknown_vm_op                         0  ''                       Invalid operation
+$vm answer                                0  ''                       No questions pending.
+unknown_vm getstate                       0  ''                       No virtual machine found with name
+
+# @todo: Some things can't be tested meaningfully without a guest OS
+# and/or Tools.
+$vm listguestnics                         0  ''
+
+# Miscellaneous server ops.
+listdatastores                            0  '/vmfs/volumes'
+listvms                                   0  '$vm/$vm.vmx'
+-l                                        0  '$vm/$vm.vmx'
+
+$vm getstate                              0  ok('off')
+$vm start                                 0  ok('1')
+$vm getstate                              0  ok('on')
+$vm getproductinfo product                0  ok('esx|embeddedEsx')
+$vm getproductinfo platform               0  ok('vmnix-x86')
+$vm getproductinfo build                  0  ok('[0-9]+')
+$vm getproductinfo majorversion           0  ok('[0-9]+')
+$vm getproductinfo minorversion           0  ok('[0-9]+')
+$vm getproductinfo revision               0  ok('[0-9]+')
+getresource system.mem.active             0  ok('[0-9]+', 0)
+$vm getconfigfile                         0  ok('.*$vm/$vm.vmx')
+$vm getconfig guestOS                     0  ok('dosGuest')
+$vm getconfig memSize                     0  ok('256')
+$vm getconfig config.version              0  ok('vmx-08')
+$vm getconfig displayName                 0  ok('vmware-cmd_e2eTest')
+$vm getconfig uuid.location               0  ok('[0-9a-f\-]+')
+$vm getconfig uuid.bios                   0  ok('[0-9a-f\-]+')
+$vm getconfig annotation                  0  ok('vmware-cmd test')
+$vm getconfig workingDir                  0  ok('.+')
+$vm getconfig redoLogDir                  0  ok('.+')
+$vm getconfig suspend.directory           0  ok('.+')
+$vm getconfig disable_acceleration        0  ok('0')
+$vm getconfig debug                       0  ok('[01]')
+$vm getconfig logging                     0  ok('1')
+$vm getconfig net.toe                     0  ok('0')
+$vm getconfig toolScripts.afterPowerOn    0  ok('1')
+$vm getconfig toolScripts.afterResume     0  ok('1')
+$vm getconfig toolScripts.beforePowerOff  0  ok('1')
+$vm getconfig toolScripts.beforeSuspend   0  ok('1')
+$vm getconfig powerType.powerOff          0  ok('soft')
+$vm getconfig powerType.suspend           0  ok('hard')
+$vm getconfig powerType.reset             0  ok('soft')
+$vm getconfig numvcpus                    0  ok('1')
+$vm getid                                 0  ok('[0-9]+')
+# Not correctly implemented -- $vm getheartbeat                          0  ok('[0-9]+')
+$vm getuptime                             0  ok('[0-9]+')
+$vm gettoolslastactive                    0  ok('[0-9]+')
+$vm createsnapshot snap1 testsnap 0 0     0  ok('1')
+$vm hassnapshot                           0  ok('1')
+$vm revertsnapshot                        0  ok('1')
+$vm removesnapshots                       0  ok('1')

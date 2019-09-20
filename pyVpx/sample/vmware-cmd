@@ -1,0 +1,526 @@
+#!/usr/bin/python
+
+import logging
+import sys
+import re
+
+from pyVim.connect import Connect, GetSi
+#from pyVmomi import Vim
+from pyVim import arguments
+from pyVim import invt
+from pyVim import pp
+from pyVim import vm
+from pyVim import vimutil
+
+mappingTables = {
+   "toolsNotInstalled" : "NotThere",
+   "toolsNotRunning" : "NotOn",
+   "toolsOld" : "Old",
+   "toolsOk" : "Ok",
+   "poweredOn" : "On",
+   "poweredOff" : "Off",
+   "suspended" : "Suspended"
+   }
+
+listEntities = [ "vm", "datacenter", "folder",
+                 "computeresource", "host", "resourcepool" ]
+vmCommands = [ "poweron", "poweroff", "reset", "suspend", "shutdown",
+               "reboot", "standby", "createsnap", "revert", "removeallsnap",
+               "listsnap", "upgradehw", "marktemplate", "markvm", "unregister"]
+hostCommands = ["reboot", "disconnect", "reconnect", "shutdown", "enterstandby",
+                "exitstandby", "enableha", "disableadmin", "enableadmin",
+                "entermaintmode", "exitmaintmode", "remove", "add", "destroy",
+                "delete", "vmprincipal"]
+folderEntities = [ "create", "add", "delete", "move", "destroy", "remove" ]
+
+def getNextArg(default, ix, args):
+   if len(args) > ix + 1:
+      return args[ix]
+   else:
+      return default
+
+def getVMData(vm, inv):
+   summary = vm.GetSummary()
+   # XXX: Add version info
+   name = summary.GetConfig().GetName()
+   path = summary.GetConfig().GetVmPathName()
+   mem = summary.GetConfig().GetMemorySizeMB()
+   cpu = summary.GetConfig().GetNumCpu()
+   guest = summary.GetConfig().GetGuestId()
+   guest = guest.rstrip("Guest")
+   guestAddr = ""
+   if summary.GetGuest().GetHostName() != None:
+      guestAddr = summary.GetGuest().GetHostName()
+   elif summary.GetGuest().GetIpAddress():
+      guestAddr = summary.GetGuest().GetIpAddress()
+   tools = summary.GetGuest().GetToolsStatus()
+   if mappingTables.has_key(tools):
+      tools = mappingTables[tools]
+   elif tools == None:
+      tools = ""
+   overall = summary.GetOverallStatus()
+   power = summary.GetRuntime().GetPowerState()
+   if mappingTables.has_key(power):
+      power = mappingTables[power]
+   question = "N"
+   if summary.GetRuntime().GetQuestion() != None:
+      question = "Y"
+
+   data = [ name, path, power, guest, guestAddr, tools, overall,
+            question ]
+   return data
+
+def getDCData(dc, inv):
+   nw = dc.GetNetwork()
+   dsList = [ ds.GetSummary().GetName() for ds in dc.GetDatastore() ]
+   dsListing = ", ".join(dsList)
+   nwList = [ nw.GetName() for nw in dc.GetNetwork() ]
+   nwListing = ", ".join(nwList)
+   data = [ dc.GetName(), dc.GetOverallStatus(), dsListing, nwListing ]
+   return data
+
+def getFolderData(folder, inv):
+   # XXX: Need to attach datacenter listing here to uniquefy them
+   children = folder.GetChildEntity()
+   listing = [ child.GetName() for child in children ]
+   names = ", ".join(listing)
+   data = [ folder.GetName(), names ]
+   return data
+
+def getCRData(cr, inv):
+   summary = cr.GetSummary()
+   data = [ cr.GetName(),
+            str(summary.GetEffectiveCpu()), str(summary.GetEffectiveMemory()),
+            str(summary.GetNumHosts()), str(summary.GetNumEffectiveHosts()),
+            summary.GetOverallStatus() ]
+   return data
+
+def getHostData(host, inv):
+   summary = host.GetSummary()
+   maint = "N"
+   if summary.GetRuntime().GetInMaintenanceMode():
+      maint = "Y"
+   data = [ summary.GetConfig().GetName(),
+            summary.GetConfig().GetProduct().GetVersion(),
+            summary.GetConfig().GetProduct().GetBuild(),
+            summary.GetConfig().GetProduct().GetProductLineId(),
+            summary.GetRuntime().GetConnectionState(),
+            summary.GetRuntime().GetPowerState(),
+            maint,
+            str(summary.GetHardware().GetCpuMhz() * summary.GetHardware().GetNumCpuCores()),
+            str(summary.GetHardware().GetMemorySize() / (1024*1024)) ]
+            
+   return data
+
+def getRPData(rp, inv):
+   summary = rp.GetSummary()
+   data = [ summary.GetName(), summary.GetRuntime().GetOverallStatus() ]
+   return data
+
+def listProcess(args):
+   logging.debug("Processing list command")
+   directArgs = args.GetUnprocessedArgs()
+   listType = directArgs[1].lower()
+   logging.debug("List type: " + listType)
+
+   parentRestrict=args.GetKeyValue("parent")
+   filterRestrict=args.GetKeyValue("filter")
+
+   data = []
+   if listType == "vm":
+      objList = invt.findVms(parentRestrict, filterRestrict)
+      dataGather = getVMData
+      labels = ( 'Name', 'Path', 'Power', 'Guest', 'IP',
+                 'Tools', 'Overall', 'Stuck?')
+   elif listType == "datacenter":
+      objList = invt.findDatacenters(parentRestrict, filterRestrict)
+      dataGather = getDCData
+      labels = ( 'Name', 'Overall', 'Datastores', 'Networks')
+   elif listType == "folder":
+      objList = invt.findFolders(parentRestrict, filterRestrict)
+      dataGather = getFolderData
+      labels = ( 'Name', 'Children listing')
+   elif listType == "computeresource":
+      objList = invt.findComputeResource(parentRestrict, filterRestrict)
+      dataGather = getCRData
+      labels = ( 'Name', "CPU (mhz)", "Memory (MB)", "Hosts", "Effective hosts", "Status" )
+   elif listType == "host":
+      objList = invt.findHost(parentRestrict, filterRestrict)
+      dataGather = getHostData
+      labels = ( 'Name', 'Version', 'Build', 'Product', 'Connection', 'Power', 'Maint?',
+                 'Cpu (mhz)', 'Mem (MB)' )
+   elif listType == "resourcepool":
+      objList = invt.findResourcePools(parentRestrict, filterRestrict)
+      dataGather = getRPData
+      labels = ( 'Name', 'Status' )
+
+   if objList:
+      for obj in objList:
+            data.append(dataGather(obj[0], obj[1]))
+   data.sort(key=lambda x:x[int(args.GetKeyValue("sortcol"))])
+   print(pp.indent([labels] + data, hasHeader = True, delim = '  ',
+                   prefix = ' '))
+
+   
+def checklist(args):
+   directArgs = args.GetUnprocessedArgs()
+   listType = directArgs[1].lower()
+   if listType in listEntities:
+      return None
+   return "list takes following parameters: " + str(listEntities) + " and " \
+          + listType + " is not accepted."
+   
+def folderProcess(args):
+   logging.debug("Processing folder command")
+   directArgs = args.GetUnprocessedArgs()
+   cmd = directArgs[2].lower()
+   foldername = directArgs[1]
+   # XXX: Has to work against a datacenter and the root as well!
+   if cmd == "create" or cmd == "add":
+      parentname = directArgs[3]
+      parentsList = invt.findFolders("", parentname)
+      if len(parentsList) == 0:
+         logging.error("Couldnt find the parent folder")
+         sys.exit(-1)
+      vimutil.InvokeAndTrack(parentsList[0][0].CreateFolder, foldername)
+      sys.exit(0)
+   folderList = invt.findFolders("", foldername)
+   if len(folderList) == 0:
+      logging.error("Couldnt find the specified folder")
+      sys.exit(-1)
+   folder = folderList[0][0]
+   if cmd == "delete" or cmd == "destroy" or cmd == "remove":
+      vimutil.InvokeAndTrack(folder.Destroy)
+   elif cmd == "move":
+      newParent = directArgs[3]
+      parentList = invt.findFolders("", newParent)
+      if len(parentList) == 0:
+         logging.error("Couldnt find the new parent folder")
+         sys.exit(-1)
+      vimutil.InvokeAndTrack(parentList[0][0].MoveInto, [ folder ])
+      
+
+def checkfolder(args):
+   directArgs = args.GetUnprocessedArgs()
+   if len(directArgs) < 3:
+      return "Insufficient arguments"
+   foldername = directArgs[1]
+   cmd = directArgs[2].lower()
+   if cmd in folderEntities:
+      if (cmd == "add" or cmd == "move" or cmd == "create") and len(directArgs) < 4:
+         return "A target must be specified for the move"
+      return None
+   return "folder takes the following subcommands: " + str(folderEntities) + " and "\
+          + cmd + " is not accepted."
+   
+def dcProcess(args):
+   logging.debug("Processing dc command")
+
+def checkdc(args):
+   return None
+
+def crProcess(args):
+   logging.debug("Processing cr command")
+
+def checkcr(args):
+   return None
+   
+def hostProcess(args):
+   logging.debug("Processing host command")
+   directArgs = args.GetUnprocessedArgs()
+   hostname = directArgs[1]
+   cmd = directArgs[2].lower()
+   if cmd == "add":
+      user = directArgs[3]
+      pwd = directArgs[4]
+      entity = directArgs[5]
+      vmfolder = getNextArg("", 6, directArgs)
+      # Accepted entities are datacenters, cluster compute resources or folders
+      # inside a datacenter
+      actual = None
+      dcs = invt.findDatacenters("", entity)
+      if len(dcs) == 0:
+         # XXX: Not a datacenter. Folder? Need to identify folders by datacenter as well
+         folders = invt.findFolders("", entity)
+         if len(folders) == 0:
+            # Not a folder, compute resource
+            crs = invt.findComputeResource("", entity)
+            if len(crs) == 0:
+               logging.error("Couldnt find the specified entity to add to")
+               sys.exit(-1)
+            else:
+               if isinstance(crs[0][0], Vim.ClusterComputeResource):
+                  actual = crs[0][0]
+               else:
+                  logging.error("Specified entity doesnt accept host creation")
+                  sys.exit(-1)            
+         else:
+            actual = folders[0][0]
+      else:
+         actual = dcs[0][0].GetHostFolder()
+      actualvmFolder = None
+      if vmfolder != "":
+         loc = invt.findFolder("", vmfolder)
+         if len(loc) > 0:
+            actualvmFolder = loc[0]
+         
+      cnx = Vim.Host.ConnectSpec()
+      cnx.SetHostName(hostname)
+      cnx.SetUserName(user)
+      cnx.SetPassword(pwd)
+      cnx.SetVmFolder(actualvmFolder)
+      cnx.SetForce(True)
+      if isinstance(actual, Vim.ClusterComputeResource):
+         vimutil.InvokeAndTrack(actual.AddHost, cnx, True, None)
+      else:
+         vimutil.InvokeAndTrack(actual.AddStandaloneHost, cnx, None, True)
+      sys.exit(0)   
+   search = GetSi().RetrieveContent().GetSearchIndex()
+   host = search.FindByIp(None, hostname, False)
+   if host == None:
+      host = search.FindByDnsName(None, hostname, False)
+   if host == None:
+      logging.error("Host not found")
+      sys.exit(0)
+   if cmd == "disconnect":
+      vimutil.InvokeAndTrack(host.Disconnect)
+   elif cmd == "reboot":
+      vimutil.InvokeAndTrack(host.Reboot)
+   elif cmd == "reconnect":
+      vimutil.InvokeAndTrack(host.Reconnect, None)
+   elif cmd == "shutdown":
+      vimutil.InvokeAndTrack(host.Shutdown, True)
+   elif cmd == "enterstandby":
+      vimutil.InvokeAndTrack(host.EnterStandbyMode, 90, False)
+   elif cmd == "exitstandby":
+      vimutil.InvokeAndTrack(host.ExitStandbyMode, 90)
+   elif cmd == "enableha":
+      vimutil.InvokeAndTrack(host.ReconfigureDAS)
+   elif cmd == "disableadmin":
+      vimutil.InvokeAndTrack(host.DisableAdmin)
+   elif cmd == "enableadmin":
+      vimutil.InvokeAndTrack(host.EnableAdmin)
+   elif cmd == "entermaintmode":
+      vimutil.InvokeAndTrack(host.EnterMaintenanceMode, 90, False)
+   elif cmd == "exitmaintmode":
+      vimutil.InvokeAndTrack(host.ExitMaintenanceMode, 90)
+   elif cmd == "vmprincipal":
+      hostConfig = host.GetConfig()
+      hostConfigManager = host.GetConfigManager()
+      datastoreSystem = hostConfigManager.GetDatastoreSystem()
+
+      vmPrincipalUser = hostConfig.datastorePrincipal
+      print "vmPrincipalUser is \"%s\"" % vmPrincipalUser
+
+      if len(directArgs) == 4:
+         newVmPrincipalUser = directArgs[3]
+         print "Changing vmPrincipalUser to \"%s\"" % newVmPrincipalUser
+         datastoreSystem.ConfigureDatastorePrincipal(userName=newVmPrincipalUser)
+   elif cmd == "remove" or cmd == "destroy" or cmd == "delete":
+      parent = host.GetParent()
+      if isinstance(parent, Vim.ClusterComputeResource):
+         # In a cluster, the host needs to be in maintenance mode.
+         # Should we just do that for them?
+         vimutil.InvokeAndTrack(host.Destroy)
+      else:
+         vimutil.InvokeAndTrack(parent.Destroy)
+
+def checkhost(args):
+   directArgs = args.GetUnprocessedArgs()
+   if len(directArgs) < 3:
+      return "Insufficient arguments to the host group. Please specify a subcommand"
+   cmd = directArgs[2].lower()
+   if cmd in hostCommands:
+      if cmd != "add":
+         return None
+      else:
+         if len(directArgs) < 6:
+            return "Insufficient arguments to the host add command. " + \
+                   "Username and pwd are required"
+   else:
+      return "Host takes following parameters: " + str(hostCommands) + " and " \
+             + cmd + " is not accepted."
+   
+
+def vmProcess(args):
+   logging.debug("Processing vm command")
+   directArgs = args.GetUnprocessedArgs()
+   vmname = directArgs[1]
+   cmd = directArgs[2].lower()
+   if cmd == "register":
+      # Implement this
+      logging.info("Not implemented yet")
+      sys.exit(0)
+      
+   search = GetSi().RetrieveContent().GetSearchIndex()
+   vm1 = None
+   if vmname.startswith("/vmfs/volumes"):
+      vmname = vmname.split("/vmfs/volumes/", 1)[1]
+      loc = vmname.find("/")
+      dsname = "[ " + vmname[0:loc-1] + " ] " + vmname[loc + 1:]
+      print dsname
+   else:
+      vm1 = search.FindByInventoryPath(vmname)
+
+   if vm1 == None:
+      # Too bad. the fast path is dead. We have either a path or a name
+      objList = invt.findVms("", vmname)
+      # XXX: We dont yet work with config paths
+      if len(objList) == 0:
+         logging.error("Virtual machine not found")
+         sys.exit(01)
+      vm1 = objList[0][0]
+      
+   if cmd == "poweron":
+      vm.PowerOn(vm1)
+   elif cmd == "poweroff":
+      vm.PowerOff(vm1)
+   elif cmd == "suspend":
+      vm.Suspend(vm1)
+   elif cmd == "reset":
+      vm.Reset(vm1)
+   elif cmd == "shutdown":
+      vm.ShutdownGuest(vm1)
+   elif cmd == "reboot":
+      vm.RebootGuest(vm1)
+   elif cmd == "standby":
+      vm.Standby(vm1)
+   elif cmd == "createsnap":
+      memory = False
+      if len(directArgs) >= 5:
+         memory = bool(directArgs[4])
+         vm.CreateSnapshot(vm1, directArgs[3], memory)
+   elif cmd == "revert":
+      # XXX Support reverting to specific points
+      vm.RevertToCurrentSnapshot(vm1)
+   elif cmd == "removeallsnap":
+      vm.RemoveAllSnapshots(vm1)
+   elif cmd == "listsnap":
+      snaps = vm1.GetSnapshot()
+      snapsList = snaps.GetRootSnapshotList()
+      for i in snapsList:
+         logging.info("Name: " + i.GetName() + " Desc: " + i.GetDescription()
+                      + ", Powerstate: " + i.GetState())
+         snapsList.append(i.GetChildSnapshotList())
+   elif cmd == "upgradehw":
+      vm.UpgradeVirtualHardware(vm1)
+   elif cmd == "marktemplate":
+      vm.MarkAsTemplate(vm1)
+   elif cmd == "markvm":
+      vm.MarkAsVirtualMachine(vm1)
+   elif cmd == "unregister":
+      vm.Unregister(vm1)
+      
+def checkvm(args):
+   directArgs = args.GetUnprocessedArgs()
+   if len(directArgs) < 3:
+      return "Insufficient arguments to the VM group. Please specify a subcommand"
+   cmd = directArgs[2].lower()
+   if cmd in vmCommands:
+      if cmd == "createsnap":
+         if len(directArgs) < 4:
+            return "Create snapshot requires a name for the snapshot"
+      return None
+   else:
+      return "VM takes following parameters: " + str(vmCommands) + " and " \
+             + cmd + " is not accepted."
+   
+def Usage():
+   logging.info("Usage instructions: ")
+   logging.info("vmware-cmd <base parameters> <command group> <object> <subommand> <parameters>")
+   logging.info("Base parameters: ")
+   logging.info("-h, --host      : Host name for VC/ESX/Server host")
+   logging.info("-u, --user      : User name")
+   logging.info("-p, --pwd       : Password")
+   logging.info("-s, --sortcol   : For tabular data, column to sort on")
+   logging.info("")
+   logging.info("Command groups: ")
+   logging.info("  list   : Inventory walker")
+   logging.info("  dc     : Datacenter manipulation")
+   logging.info("  cr     : Compute resource manipulation")
+   logging.info("  folder : Folder management")
+   logging.info("  host   : Host management")
+   logging.info("  vm     : Virtual machine operations")
+   logging.info("")
+   logging.info("Subgroup operations: ")
+   logging.info("list <inventory object type> --parent=<parent expression> --filter=<filter expression>")
+   logging.info("Inventory object types: " + ", ".join(listEntities))
+   logging.info("parent-expression: Path in the inventory to the object with wildcard *")
+   logging.info("    ex: /Foo/Bar/*/vm/Baz or /Foo/Bar/ or /Foo/Bar/*")
+   logging.info("    * matches only a specific level entry unless at the end where it consumes everything")
+   logging.info("filter-expression: Specific set of properties to be filtered against")
+   logging.info("    XXXXXXXX")
+   logging.info("")
+   logging.info("vm <vm id> <operation> <operation specific parameters>")
+   logging.info("vmid: Can be display name, inventory path (fast), filesystem or datastore path")
+   logging.info("operations: " + ", ".join(vmCommands))
+   logging.info("")
+   logging.info("host <host id> <operation> <operation specific parameters>")
+   logging.info("host id: Either the IP or DNS name of the host")
+   logging.info("operations: " + ", ".join(hostCommands))
+   logging.info("Specific options for add: host <host addr> add <user> <pwd> <entity to add to> <vm folder>")
+   logging.info("    entity to add to: ClusterComputeResource, Datacenter or Folder")
+   logging.info("    vm folder: A folder to put host virtual machines in")
+   
+def UsageError(errorMsg):
+   logging.error(errorMsg)
+   logging.error("")
+   Usage()
+   
+def main():
+   supportedArgs = [ (["h:", "host="], "localhost", "Host name of VC/host", "host"),
+                     (["u:", "user="], "root", "User name", "user"),
+                     (["p:", "pwd="], "ca$hc0w", "Password", "pwd"),
+                     (["s:", "sortcol="], "1", "Output column to sort on", "sortcol"),
+                     (["parent="], "",
+                      "Parent name (in certain contexts, regular expression)", "parent"),
+                     (["filter="], "", "Filter property list", "filter"),
+                     ]
+   
+   supportedToggles = [ (["usage", "help"], False, "Show usage information", "usage") ]
+   logging.basicConfig(level = logging.INFO,
+                       format='%(message)s')
+
+   args = arguments.Arguments(sys.argv, supportedArgs, supportedToggles)
+   if args.GetKeyValue("usage") == True:
+      Usage()
+      sys.exit(0)
+
+   directArgs = args.GetUnprocessedArgs()
+   if len(directArgs) == 0:
+      Usage()
+      sys.exit(0)
+   
+   majorCommand = directArgs[0].lower()
+   logging.debug("Major command: " + majorCommand)
+
+   majorCommandTable = { "list" : (listProcess, checklist),
+                         "folder" : (folderProcess, checkfolder),
+                         "dc" : (dcProcess, checkdc),
+                         "cr" : (crProcess, checkcr),
+                         "host" : (hostProcess, checkhost),
+                         "vm" : (vmProcess, checkvm)
+                         }
+   if majorCommandTable.has_key(majorCommand):
+      # Check arguments first
+      check = majorCommandTable[majorCommand][1](args)
+      if check != None:
+         UsageError(check)
+         sys.exit(-1)
+      
+      # Connect
+      si = Connect(host=args.GetKeyValue("host"),
+                   user=args.GetKeyValue("user"),
+                   pwd=args.GetKeyValue("pwd"))
+
+      # Actually execute
+      results = majorCommandTable[majorCommand][0](args)      
+   else:
+      logging.error("The command " + majorCommand + " is not an acceptable input")
+      Usage()
+      sys.exit(-1)
+
+# Start program
+if __name__ == "__main__":
+    main()
+

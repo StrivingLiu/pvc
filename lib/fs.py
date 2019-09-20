@@ -1,5 +1,3 @@
-from connect import get_entity_subfolder
-
 import os
 
 class AbstractNode:
@@ -31,9 +29,16 @@ class AbstractNode:
 
 
 class FS:
-	def __init__(self, rootNode):
+	def __init__(self):
+		self.currentNode = None
+		self.subNodes = []
+
+	def setup(self, rootNode):
 		self.rootNode = rootNode
 		self.currentNode = rootNode
+
+	def _change_dir(self, node):
+		self.currentNode = node
 		self.subNodes = []
 
 	def get_current_path(self):
@@ -45,46 +50,36 @@ class FS:
 		nodesName = [(node.get_name(), node.get_type(),) for node in self.subNodes]
 		return nodesName
 
-	def enter_subNode(self, index):
-		if index.isdigit():
-			self.currentNode = self.subNodes[int(index)]
-		else:
-			exist = False
-			for node in self.subNodes:
-				if index == node.get_name():
-					exist = True
-					self.currentNode = node
-					break
-			if not exist:
-				pass
+	def enter_subNode(self, params):
+		if not params:
+			return
+		try:
+			if len(params) == 1 and params[0].isdigit():
+				self._change_dir(self.subNodes[int(params[0])])
+			else:
+				exist = False
+				for node in self.subNodes:
+					if params[0] == node.get_name():
+						exist = True
+						self._change_dir(node)
+						break
+				if not exist:
+					pass
+		except IndexError:
+			print('no matches for "%s"' % params[0])
 
-if __name__=="__main__":
-	from connect import PyVimConnect, Entity, Folder
+	def back_to_root(self):
+		self._change_dir(self.rootNode)
 
-	try:
-		si = PyVimConnect('10.192.231.51')
-	except Exception as ex:
-		raise Exception('invalid vc ip')
-	fs = FS(Folder(si.content.rootFolder, None))
-	print(fs.get_current_path())
-	print(fs.list_subNodes())
+	def back_one_space(self):
+		self._change_dir(self.currentNode.parent)
 
+	def get_info(self, node):
+		pass
 
-	"""
-	""
-	ls: folder; 0 Datacenters(no)
-	cd: 0
-	"/Datacenters"
-	ls: entity; 0 VSAN_SCALE_DC(Datacenter)
-	cd: 0
-	(/VSAN_SCALE_DC)
-	"/Datacenters/VSAN_SCALE_DC"
-	ls: folder; 0 host(); 1 network();2 vm()
-	cd: 0
-	"/Datacenters/VSAN_SCALE_DC/host"
-	ls: entity; 0 cluster_1(computeResource); 1 cluster_2(computeResource) 
-	cd: 0
-	(/VSAN_SCALE_DC/cluster_1)
-	"/Datacenters/VSAN_SCALE_DC/host/cluster_1"
-	ls: 
-	"""
+_gFileSystem = None
+def GetFS():
+	global _gFileSystem
+	if not _gFileSystem:
+		_gFileSystem = FS()
+	return _gFileSystem

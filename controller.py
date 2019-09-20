@@ -1,23 +1,33 @@
 import signal
 
-from lib import Worker
+from lib.worker import Worker
+from commands.cmdmanager import GetCmdMgr
+from executer import Execute
 
 class Controller(object):
 	NEED_EXIT = False
 	SIGNAL_HANDLE = None
 
-	def __init__(self, exec, data):
+	def __init__(self, func, data):
 		if not Controller.SIGNAL_HANDLE:
 			Controller.signal_init()
 			Controller.SIGNAL_HANDLE = Controller.interrupt_handler
-		self.worker = Worker(exec, data)
+		self.cmdMgr = GetCmdMgr()
+		self.worker = Worker(func, data)
 		self.worker.set_checkFunc(self.get_state)
 
 	def get_state(self):
 		return Controller.NEED_EXIT
 
 	def run_cmd(self, cmd):
-		self.worker.run(cmd, None)
+		func = self.cmdMgr.get_cmd(cmd[0])
+		if not func:
+			print('Invalid command')
+			return
+		if self.cmdMgr.is_builtin_cmd(cmd[0]):
+			Execute(func, cmd[1:], None)
+		else:
+			self.worker.run(func, cmd[1:])
 
 	def get_output(self):
 		pass

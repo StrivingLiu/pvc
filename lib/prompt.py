@@ -1,4 +1,3 @@
-
 import sys
 import copy
 
@@ -70,15 +69,15 @@ class Completer(Completer):
          # input text changes before all completions are generated.
          self.loading -= 1
 
-
 class Prompt():
 
    def __init__(self, persistent_history = True):
       self.bindings = KeyBindings()
-      self.cmd = BASIC_COMMAND
-      self.completer = Completer(self.cmd.keys())
+      self.cmds = {}
+      self.completer = Completer(self.cmds.keys())
       self.toolbar = BASIC_DESC
-      self.history = GenerateHistory('aaa', persistent_history)
+      self.history = GenerateHistory('./pvc', persistent_history)
+      self.path = '/'
 
       @self.bindings.add(' ')
       def _(event):
@@ -91,17 +90,20 @@ class Prompt():
          buffer.insert_text(' ')
          if cmdstr and not cmdstr.isspace():
             cmdname = cmdstr.split()[0]
-            if cmdname in self.cmd.keys():
-               showArgs = self.cmd[cmdname]['args']
+            if cmdname in self.cmds.keys():
+               showArgs = self.cmds[cmdname]['args']
                showArgs = showArgs if showArgs is not None else [' ']
                self.completer.ChangeCompletion(loadcmds = showArgs)
-               self.toolbar = self.cmd[cmdname].get('desc', 'No Description')
+               self.toolbar = self.cmds[cmdname].get('desc', 'No Description')
 
-   def AddCmds(self, cmdList=None):
+   def change_path(self, path):
+      self.path = path
+
+   def add_cmds(self, cmdList=None):
       if cmdList is not None:
          if not PY3K:
             cmdList = UnicodeConvert(cmdList)
-         self.cmd.update(cmdList)
+         self.cmds.update(cmdList)
          self.completer.UpdateCmd(cmdList.keys())
 
    def _restate(self):
@@ -111,10 +113,13 @@ class Prompt():
    def _getBottomToolbar(self):
       return self.toolbar
 
-   def Get(self):
+   def _wrap_path(self):
+      return '%s %s> ' % ('pvc-1.0', self.path)
+
+   def get(self):
       while True:
          self._restate()
-         cmd = prompt('pvc> ', completer=self.completer,
+         cmd = prompt(self._wrap_path(), completer=self.completer,
             key_bindings=self.bindings, complete_in_thread=True,
             complete_while_typing=True, refresh_interval=.5,
             bottom_toolbar=self._getBottomToolbar,
@@ -122,3 +127,10 @@ class Prompt():
             history=self.history)
          if cmd and not cmd.isspace():
                 return cmd
+
+_gPrompt = None
+def GetPrompt():
+   global _gPrompt
+   if not _gPrompt:
+      _gPrompt = Prompt()
+   return _gPrompt

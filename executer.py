@@ -2,12 +2,13 @@ import traceback
 from multiprocessing.managers import BaseManager
 
 
-def Execute(cmd, params, context):
+def Execute(func, params, context):
 	ret = None
 	try:
-		ret = cmd(**params)
+		ret = func(params)
 	except Exception as ex:
 		ret = traceback.format_exc()
+		print(ret)
 	finally:
 		return ret
 
@@ -32,7 +33,7 @@ def Init():
 	manager = get_manager()
 	shared_data = manager.shared_content(args="test")
 
-BaseManager.register("shared_content", Demo_struct)
+# BaseManager.register("shared_content", Demo_struct)
 
 if __name__=="__main__":
 	pass

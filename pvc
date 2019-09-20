@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+import sys
+import traceback
+from init import Init
+from controller import Controller
+from executer import Execute
+from display import Interactor
+
+
+def Exit(status=0):
+	sys.exit(status)
+
+def Run():
+	data = None
+	controller = Controller(Execute, data)
+	interactor = Interactor(controller)
+	try:
+		while True:
+			exit, cmd = interactor.get_input()
+			if exit:
+				Exit()
+			else:
+				controller.run_cmd(cmd)
+				#interactor.generate_output()
+	except KeyboardInterrupt:
+		Exit()
+	except Exception as e:
+		exstr = traceback.format_exc()
+		Exit()
+
+
+# './pvc 10.78.125.74'
+if __name__=="__main__":
+	Init()
+	Run()

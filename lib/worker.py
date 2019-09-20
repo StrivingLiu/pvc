@@ -2,7 +2,7 @@ import time
 import multiprocessing
 
 class Worker:
-	def __init__(self, execute_func,shared_data):
+	def __init__(self, execute_func, shared_data):
 		self.data = shared_data
 		self.execute_func = execute_func
 		self.check_func = None

@@ -1,0 +1,133 @@
+operation  powerOpMode  startState  toolsInstalled  newState  raisesFault  callCounts
+
+#    op     mode  oldState   t  newState   res  callCounts
+#------  -------  ---------  -  --------   ---  ------------
+
+Suspend     'xx'  off        0  off        IPM  {}
+
+Suspend     None  off        0  off        IPS  {'StandbyGuest':1,'Suspend':0}
+Suspend     None  off        1  off        IPS  {'StandbyGuest':1,'Suspend':0}
+Suspend     None  on         0  on         TU   {'StandbyGuest':1,'Suspend':0}
+Suspend     None  on         1  suspended  OK   {'StandbyGuest':1,'Suspend':0}
+Suspend     None  suspended  0  suspended  IPS  {'StandbyGuest':1,'Suspend':0}
+Suspend     None  suspended  1  suspended  IPS  {'StandbyGuest':1,'Suspend':0}
+
+Suspend     soft  off        0  off        IPS  {'StandbyGuest':1,'Suspend':0}
+Suspend     soft  off        1  off        IPS  {'StandbyGuest':1,'Suspend':0}
+Suspend     soft  on         0  on         TU   {'StandbyGuest':1,'Suspend':0}
+Suspend     soft  on         1  suspended  OK   {'StandbyGuest':1,'Suspend':0}
+Suspend     soft  suspended  0  suspended  IPS  {'StandbyGuest':1,'Suspend':0}
+Suspend     soft  suspended  1  suspended  IPS  {'StandbyGuest':1,'Suspend':0}
+
+Suspend  trysoft  off        0  off        IPS  {'StandbyGuest':1,'Suspend':1}
+Suspend  trysoft  off        1  off        IPS  {'StandbyGuest':1,'Suspend':1}
+Suspend  trysoft  on         0  suspended  OK   {'StandbyGuest':1,'Suspend':1}
+Suspend  trysoft  on         1  suspended  OK   {'StandbyGuest':1,'Suspend':0}
+Suspend  trysoft  suspended  0  suspended  IPS  {'StandbyGuest':1,'Suspend':1}
+Suspend  trysoft  suspended  1  suspended  IPS  {'StandbyGuest':1,'Suspend':1}
+
+Suspend     hard  off        0  off        IPS  {'StandbyGuest':0,'Suspend':1}
+Suspend     hard  off        1  off        IPS  {'StandbyGuest':0,'Suspend':1}
+Suspend     hard  on         0  suspended  OK   {'StandbyGuest':0,'Suspend':1}
+Suspend     hard  on         1  suspended  OK   {'StandbyGuest':0,'Suspend':1}
+Suspend     hard  suspended  0  suspended  IPS  {'StandbyGuest':0,'Suspend':1}
+Suspend     hard  suspended  1  suspended  IPS  {'StandbyGuest':0,'Suspend':1}
+
+#    op     mode  oldState   t  newState   res  callCounts
+#------  -------  ---------  -  --------   ---  ------------
+
+Reset       'xx'  off        0  off        IPM  {}
+
+Reset       None  off        0  off        IPS  {'RebootGuest':1,'Reset':0}
+Reset       None  off        1  off        IPS  {'RebootGuest':1,'Reset':0}
+Reset       None  on         0  on         TU   {'RebootGuest':1,'Reset':0}
+Reset       None  on         1  on         OK   {'RebootGuest':1,'Reset':0}
+Reset       None  suspended  0  suspended  IPS  {'RebootGuest':1,'Reset':0}
+Reset       None  suspended  1  suspended  IPS  {'RebootGuest':1,'Reset':0}
+
+Reset       soft  off        0  off        IPS  {'RebootGuest':1,'Reset':0}
+Reset       soft  off        1  off        IPS  {'RebootGuest':1,'Reset':0}
+Reset       soft  on         0  on         TU   {'RebootGuest':1,'Reset':0}
+Reset       soft  on         1  on         OK   {'RebootGuest':1,'Reset':0}
+Reset       soft  suspended  0  suspended  IPS  {'RebootGuest':1,'Reset':0}
+Reset       soft  suspended  1  suspended  IPS  {'RebootGuest':1,'Reset':0}
+
+Reset    trysoft  off        0  off        IPS  {'RebootGuest':1,'Reset':1}
+Reset    trysoft  off        1  off        IPS  {'RebootGuest':1,'Reset':1}
+Reset    trysoft  on         0  on         OK   {'RebootGuest':1,'Reset':1}
+Reset    trysoft  on         1  on         OK   {'RebootGuest':1,'Reset':0}
+Reset    trysoft  suspended  0  suspended  IPS  {'RebootGuest':1,'Reset':1}
+Reset    trysoft  suspended  1  suspended  IPS  {'RebootGuest':1,'Reset':1}
+
+Reset       hard  off        0  off        IPS  {'RebootGuest':0,'Reset':1}
+Reset       hard  off        1  off        IPS  {'RebootGuest':0,'Reset':1}
+Reset       hard  on         0  on         OK   {'RebootGuest':0,'Reset':1}
+Reset       hard  on         1  on         OK   {'RebootGuest':0,'Reset':1}
+Reset       hard  suspended  0  suspended  IPS  {'RebootGuest':0,'Reset':1}
+Reset       hard  suspended  1  suspended  IPS  {'RebootGuest':0,'Reset':1}
+
+#    op     mode  oldState   t  newState   res  callCounts
+#------  -------  ---------  -  --------   ---  ------------
+
+Start       'xx'  off        0  off        IPM  {}
+
+Start       None  off        0  on         OK   {'PowerOn':1}
+Start       None  off        1  on         OK   {'PowerOn':1}
+Start       None  on         0  on         IPS  {'PowerOn':1}
+Start       None  on         1  on         IPS  {'PowerOn':1}
+Start       None  suspended  0  on         OK   {'PowerOn':1}
+Start       None  suspended  1  on         OK   {'PowerOn':1}
+
+Start       soft  off        0  on         OK   {'PowerOn':1}
+Start       soft  off        1  on         OK   {'PowerOn':1}
+Start       soft  on         0  on         IPS  {'PowerOn':1}
+Start       soft  on         1  on         IPS  {'PowerOn':1}
+Start       soft  suspended  0  on         OK   {'PowerOn':1}
+Start       soft  suspended  1  on         OK   {'PowerOn':1}
+
+Start    trysoft  off        0  on         OK   {'PowerOn':1}
+Start    trysoft  off        1  on         OK   {'PowerOn':1}
+Start    trysoft  on         0  on         IPS  {'PowerOn':1}
+Start    trysoft  on         1  on         IPS  {'PowerOn':1}
+Start    trysoft  suspended  0  on         OK   {'PowerOn':1}
+Start    trysoft  suspended  1  on         OK   {'PowerOn':1}
+
+Start       hard  off        0  on         OK   {'PowerOn':1}
+Start       hard  off        1  on         OK   {'PowerOn':1}
+Start       hard  on         0  on         IPS  {'PowerOn':1}
+Start       hard  on         1  on         IPS  {'PowerOn':1}
+Start       hard  suspended  0  on         OK   {'PowerOn':1}
+Start       hard  suspended  1  on         OK   {'PowerOn':1}
+
+#    op     mode  oldState   t  newState   res  callCounts
+#------  -------  ---------  -  --------   ---  ------------
+
+Stop        'xx'  on         0  on         IPM  {}
+
+Stop        None  off        0  off        IPS  {'ShutdownGuest':1,'PowerOff':0}
+Stop        None  off        1  off        IPS  {'ShutdownGuest':1,'PowerOff':0}
+Stop        None  on         0  on         TU   {'ShutdownGuest':1,'PowerOff':0}
+Stop        None  on         1  off        OK   {'ShutdownGuest':1,'PowerOff':0}
+Stop        None  suspended  0  suspended  TU   {'ShutdownGuest':1,'PowerOff':0}
+Stop        None  suspended  1  off        OK   {'ShutdownGuest':1,'PowerOff':0}
+
+Stop        soft  off        0  off        IPS  {'ShutdownGuest':1,'PowerOff':0}
+Stop        soft  off        1  off        IPS  {'ShutdownGuest':1,'PowerOff':0}
+Stop        soft  on         0  on         TU   {'ShutdownGuest':1,'PowerOff':0}
+Stop        soft  on         1  off        OK   {'ShutdownGuest':1,'PowerOff':0}
+Stop        soft  suspended  0  suspended  TU   {'ShutdownGuest':1,'PowerOff':0}
+Stop        soft  suspended  1  off        OK   {'ShutdownGuest':1,'PowerOff':0}
+
+Stop     trysoft  off        0  off        IPS  {'ShutdownGuest':1,'PowerOff':1}
+Stop     trysoft  off        1  off        IPS  {'ShutdownGuest':1,'PowerOff':1}
+Stop     trysoft  on         0  off        OK   {'ShutdownGuest':1,'PowerOff':1}
+Stop     trysoft  on         1  off        OK   {'ShutdownGuest':1,'PowerOff':0}
+Stop     trysoft  suspended  0  off        OK   {'ShutdownGuest':1,'PowerOff':1}
+Stop     trysoft  suspended  1  off        OK   {'ShutdownGuest':1,'PowerOff':0}
+
+Stop        hard  off        0  off        IPS  {'ShutdownGuest':0,'PowerOff':1}
+Stop        hard  off        1  off        IPS  {'ShutdownGuest':0,'PowerOff':1}
+Stop        hard  on         0  off        OK   {'ShutdownGuest':0,'PowerOff':1}
+Stop        hard  on         1  off        OK   {'ShutdownGuest':0,'PowerOff':1}
+Stop        hard  suspended  0  off        OK   {'ShutdownGuest':0,'PowerOff':1}
+Stop        hard  suspended  1  off        OK   {'ShutdownGuest':0,'PowerOff':1}

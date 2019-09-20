@@ -1,0 +1,8 @@
+# A Virtual Machine Specification.
+
+Name:        New_Virtual_Machine
+Annotation:  VM created by vmware-cmd
+Num CPUs:    1
+Memory:      256         # MB
+Hard Disk:
+    Size:       1        # MB

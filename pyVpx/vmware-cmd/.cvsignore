@@ -1,0 +1,10 @@
+docs
+_priv
+*.pyc
+*.pyo
+ptree.out
+*.dot
+*.png
+vmware-cmd
+pyVim
+pyVmomi

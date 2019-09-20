@@ -1,0 +1,11 @@
+Python reimplementation of vmware-cmd tool.
+
+This tool, written in Python, attempts to duplicate as much
+functionality as possible from the classic Perl-based vmware-cmd tool,
+and it adds a few tricks of its own, like more flexible and intuitive
+command-line parsing, configurable output formats, and an interactive
+shell mode (-i).
+
+This tool currently relies on pyVim (and pyVmomi).
+
+-- mabramow@vmware.com (2008-05-23)
